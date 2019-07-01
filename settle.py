@@ -2,6 +2,38 @@ import pandas as pd
 from decimal import *
 
 
+def get_dataframe():
+    csv_file_path = input(
+        "csv file path pls, otherwise hit enter to manually input: ")
+    if (csv_file_path == ""):
+        players_dict = {}
+
+        players_dict = get_players_from_input(players_dict)
+
+        players_df = pd.DataFrame(data=players_dict.items(), columns=[
+                                  "name", "net_result"])
+
+        players_df.loc[:, "net_result"] *= 100
+        players_df["net_result"] = players_df["net_result"].astype(int)
+
+        print(players_df)
+        return players_df
+    else:
+        players_df = get_players_from_csv(csv_file_path)
+        return players_df
+
+
+def get_players_from_csv(file_path):
+    read_csv = pd.read_csv(file_path)
+    cleaned_df = read_csv[["name", "net_result"]].dropna(0)
+    cleaned_df.loc[:, "net_result"] *= 100
+    cleaned_df["net_result"] = cleaned_df["net_result"].astype(int)
+    cleaned_df = cleaned_df[cleaned_df.net_result != 0]
+    cleaned_df = cleaned_df.reset_index()
+    cleaned_df = cleaned_df.drop(["index"], axis=1)
+    return cleaned_df
+
+
 def get_players_from_input(players_dict):
 
     name = input("Name please: ")
@@ -37,24 +69,24 @@ def handle_ledger_difference(players_df):
         extra_after_split = players_df["net_result"].sum()
         if (extra_after_split != 0):
             gets_extra = players_df.sample(len(players_df.index)).iloc[0][0]
-            name_idx=int(
-                    players_df[players_df["name"] == gets_extra].index[0])
+            name_idx = int(
+                players_df[players_df["name"] == gets_extra].index[0])
             players_df.iat[name_idx, 1] += -extra_after_split
 
     else:
-        to_edit=input("Who would you like to edit? ")
+        to_edit = input("Who would you like to edit? ")
         if (to_edit == ""):
             return
         else:
             try:
-                name_idx=int(
+                name_idx = int(
                     players_df[players_df["name"] == to_edit].index[0])
             except:
                 print(to_edit + " isn't a valid player... Here are the valid players:")
                 print(players_df["name"].to_string(index=False))
                 return handle_ledger_difference(players_df)
 
-            new_net_value=Decimal(
+            new_net_value = Decimal(
                 input("What should " + to_edit + "'s new net value be? "))
 
             players_df.iat[name_idx, 1] = int(new_net_value * 100)
@@ -71,6 +103,7 @@ def get_getting_proxied_name(players_df):
         print(getting_proxied +
               " isn't a valid player... Here are the valid players:")
         print(players_df["name"].to_string(index=False))
+        return get_getting_proxied_name(players_df)
 
     return getting_proxied_idx
 
@@ -98,8 +131,12 @@ def settle_proxies(players_df, getting_proxied_idx, proxy_idx, handle_proxies_ou
     players_df.iat[getting_proxied_idx, 1] -= getting_proxied_net_result
     players_df.iat[proxy_idx, 1] += getting_proxied_net_result
 
-    handle_proxies_output.append(players_df.iat[proxy_idx, 0] + " pays " +
-                                 str(getting_proxied_net_result / 100) + " to " + players_df.iat[getting_proxied_idx, 0])
+    if (getting_proxied_net_result < 0):
+        handle_proxies_output.append(players_df.iat[getting_proxied_idx, 0] + " pays " +
+                                     str(-getting_proxied_net_result / 100) + " to " + players_df.iat[proxy_idx, 0])
+    else:
+        handle_proxies_output.append(players_df.iat[proxy_idx, 0] + " pays " +
+                                     str(getting_proxied_net_result / 100) + " to " + players_df.iat[getting_proxied_idx, 0])
 
     return handle_proxies_output
 
@@ -148,15 +185,7 @@ def min_cash_flow(players_df):
 
 
 def main():
-    players_dict = {}
-
-    players_dict = get_players_from_input(players_dict)
-
-    players_df = pd.DataFrame(data=players_dict.items(), columns=[
-                              "name", "net_result"])
-
-    players_df.loc[:, "net_result"] *= 100
-    players_df["net_result"] = players_df["net_result"].astype(int)
+    players_df = get_dataframe()
 
     check_ledger_is_valid(players_df)
 
