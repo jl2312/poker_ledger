@@ -10,8 +10,8 @@ def get_dataframe():
 
         players_dict = get_players_from_input(players_dict)
 
-        players_df = pd.DataFrame(data=players_dict.items(), columns=[
-                                  "name", "net_result"])
+        players_df = pd.DataFrame.from_dict(players_dict, orient = 'index', columns=[
+                                  "name", "net_result", 'hands'])
 
         players_df.loc[:, "net_result"] *= 100
         players_df["net_result"] = players_df["net_result"].astype(int)
@@ -43,7 +43,9 @@ def get_players_from_input(players_dict):
 
     net_result = Decimal(input(name + "'s net_result: "))
 
-    players_dict[name] = net_result
+    players_dict[name] = [net_result]
+    players_dict[name].append(int(input(name + "'s number of hands played: ")))
+
 
     return get_players_from_input(players_dict)
 
@@ -183,10 +185,16 @@ def min_cash_flow(players_df):
 
     return min_cash_flow(players_df)
 
+def do_rake(players_df):
+    names = players_df['name'].tolist()
+    rake_df = pd.Series(data =  [int(input('Enter rake to be paid to '+ name + ': '))*100 for name in names], index = names)
+    players_df['Profit'] -= players_df['hands']/players_df['hands'].sum()*rake_df.sum()
+    players_df['Profit'] += rake_df
+    return players_df
 
 def main():
     players_df = get_dataframe()
-
+    players_df = do_rake(players_df)
     check_ledger_is_valid(players_df)
 
     handle_proxies_output = handle_proxies(players_df)
