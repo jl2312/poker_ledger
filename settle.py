@@ -162,10 +162,8 @@ def handle_ledger_difference(players_df):
 
         extra_after_split = players_df["net_result"].sum()
         if (extra_after_split != 0):
-            gets_extra = players_df.sample(len(players_df.index)).iloc[0][0]
-            name_idx = int(
-                players_df[players_df["name"] == gets_extra].index[0])
-            players_df.iat[name_idx, 1] += -extra_after_split
+            gets_extra = players_df.sample(1).index[0]
+            players_df.loc[gets_extra, 'net_result'] += -extra_after_split
 
     else:
         to_edit = input("Who would you like to edit? ")
@@ -173,17 +171,16 @@ def handle_ledger_difference(players_df):
             return
         else:
             try:
-                name_idx = int(
-                    players_df[players_df["name"] == to_edit].index[0])
+                players_df[to_edit]
             except:
                 print(to_edit + " isn't a valid player... Here are the valid players:")
                 print(players_df["name"].to_string(index=False))
                 return handle_ledger_difference(players_df)
 
             new_net_value = Decimal(
-                input("What should " + to_edit + "'s new net value be? "))
+                input("What should " + to_edit + "'s new net value be? Their current net is "+players_df.loc[to_edit,'net_result']))
 
-            players_df.iat[name_idx, 1] = int(new_net_value * 100)
+            players_df.loc[to_edit, 'net_result'] = int(new_net_value * 100)
 
 
 def get_getting_proxied_name(players_df):
