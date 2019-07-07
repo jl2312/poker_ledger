@@ -1,10 +1,11 @@
 import pandas as pd
 from decimal import *
-import imaplib, email, os, base64
+import imaplib, email, os, base64, warnings
 
+warnings.filterwarnings('ignore')
 def get_dataframe():
     csv_file_path = input(
-        "Type man to manually input, press enter for automatic grab, enter file path for prepared csv ")
+        "Type man to manually input, press enter for automatic email grab, enter file path for prepared csv \n")
     if (csv_file_path == "man"):
         players_dict = {}
 
@@ -19,8 +20,8 @@ def get_dataframe():
         print(players_df)
         return players_df
     elif (csv_file_path == ""):
-        start_date = input('What is the start date of the pay period? format "yyyy-mm-dd" ex: 2019-06-25')
-        end_date = input('What is the end date of the pay period? format "yyyy-mm-dd" ex: 2019-06-30')
+        start_date = input('What is the start date of the pay period? format "yyyy-mm-dd" ex: 2019-06-25\n')
+        end_date = input('What is the end date of the pay period? format "yyyy-mm-dd" ex: 2019-06-30\n')
 
         players_df = get_period_data(start_date, end_date)
         return players_df
@@ -36,8 +37,10 @@ def get_players_from_raw_csv(file_path, start_date, end_date):
                  '#1S8W8': 'Christopher Shen', '#JU9BW': 'Lenardo Gavaudan',
                  '#RE1D5': 'George Triandafyllides', '#7PMKY': 'Jake Poliner', '#7U4CB': 'Kevin Lu',
                  '#75LHN': 'Justin Bean', '#WPEHN': 'Minjae Kwon', '#0A3X7': 'Issac Aleman',
-                 '#EGY05': 'Richard J Li', '#QJ7TP': 'Sam Blumenfeld', '#ESL0T': 'William Wang', '#CJ8XJ': 'Vignesh Valliyur', 
-                 '#GWC5V':'Zachary Chivers', '#FV0CJ': 'Richard Zhang', '#N24XP': 'Jaewan Bahk', '#VSVHC': 'Nikolai Mamut',
+                 '#EGY05': 'Richard J Li', '#QJ7TP': 'Sam Blumenfeld', '#ESL0T': 'William Wang',
+                 '#CJ8XJ': 'Vignesh Valliyur', 
+                 '#GWC5V':'Zachary Chivers', '#FV0CJ': 'Richard Zhang',
+                 '#N24XP': 'Jaewan Bahk', '#VSVHC': 'Nikolai Mamut',
                  '#9RDUK': 'Patrick Chi', '#AU0T6': 'Raymond Xu'}
     read_csv['name'] = read_csv.ID.map(name_dict)
     read_csv.rename({'Profit': 'net_result', 'Hands': 'hands' }, axis = 'columns', inplace = True)
@@ -264,7 +267,7 @@ def min_cash_flow(players_df):
 
     settle_value = min([-max_debit, max_credit])
 
-    # net_value always stored in index 1 of a row
+    # net_value always stored in index 1 of a row. JOhn changed this, you have name as index so it didnt make sense 
     players_df.loc[max_credit_idx, 'net_result'] -= settle_value
     players_df.loc[max_debit_idx, 'net_result'] += settle_value
 
@@ -280,6 +283,7 @@ def do_rake(players_df):
     if rake_s.sum() == 0 : return players_df
     players_df['net_result'] -= players_df['hands']/players_df['hands'].sum()*rake_s.sum()
     players_df['net_result'] += rake_s
+    players_df['net_result'] = players_df['net_result'].round(0).astype(int)
     return players_df
 
 def main():
