@@ -185,49 +185,49 @@ def handle_ledger_difference(players_df):
 
 def get_getting_proxied_name(players_df):
     getting_proxied = input("Who is getting proxied? ")
+    names_lowered =  [x.lower() for x in players_df.index.tolist()]
+    if (getting_proxied.lower() in names_lowered):
+        getting_proxied = players_df.index.tolist()[names_lowered.index(getting_proxied.lower())]
 
-    try:
-        getting_proxied_idx = int(
-            players_df[players_df["name"] == getting_proxied].index[0])
-
-    except:
+    else:
         print(getting_proxied +
               " isn't a valid player... Here are the valid players:")
-        print(players_df["name"].to_string(index=False))
+        print(', '.join(players_df.index.tolist()))
         return get_getting_proxied_name(players_df)
 
-    return getting_proxied_idx
+    return getting_proxied
 
 
 def get_proxy_name(players_df, getting_proxied_idx):
     proxy = input(
-        "Who is " + players_df.iloc[getting_proxied_idx][0] + "'s proxy? ")
+        "Who is " + getting_proxied_idx + "'s proxy? ")
 
-    try:
-        proxy_idx = int(
-            players_df[players_df["name"] == proxy].index[0])
+    names_lowered =  [x.lower() for x in players_df.index.tolist()]
+    if (proxy.lower() in names_lowered):
+        proxy = players_df.index.tolist()[names_lowered.index(proxy.lower())]
 
-    except:
+
+    else:
         print(proxy +
               " isn't a valid player... Here are the valid players:")
-        print(players_df["name"].to_string(index=False))
-
-    return proxy_idx
+        print(', '.join(players_df.index.tolist()))
+        return(get_proxy_name(players_df, getting_proxied_idx))
+    return proxy
 
 
 def settle_proxies(players_df, getting_proxied_idx, proxy_idx, handle_proxies_output):
-    getting_proxied_net_result = players_df.iat[getting_proxied_idx, 1]
+    getting_proxied_net_result = players_df.loc[getting_proxied_idx, 'net_result']
 
     # net_value always stored in index 1 of a row
-    players_df.iat[getting_proxied_idx, 1] -= getting_proxied_net_result
-    players_df.iat[proxy_idx, 1] += getting_proxied_net_result
+    players_df.loc[getting_proxied_idx, 'net_result'] -= getting_proxied_net_result
+    players_df.loc[proxy_idx, 'net_result'] += getting_proxied_net_result
 
     if (getting_proxied_net_result < 0):
-        handle_proxies_output.append(players_df.iat[getting_proxied_idx, 0] + " pays " +
-                                     str(-getting_proxied_net_result / 100) + " to " + players_df.iat[proxy_idx, 0])
+        handle_proxies_output.append(getting_proxied_idx + " pays " +
+                                     str(-getting_proxied_net_result / 100) + " to " + proxy_idx)
     else:
-        handle_proxies_output.append(players_df.iat[proxy_idx, 0] + " pays " +
-                                     str(getting_proxied_net_result / 100) + " to " + players_df.iat[getting_proxied_idx, 0])
+        handle_proxies_output.append(proxy_idx + " pays " +
+                                     str(getting_proxied_net_result / 100) + " to " + getting_proxied_idx)
 
     return handle_proxies_output
 
@@ -276,11 +276,26 @@ def min_cash_flow(players_df):
 def do_rake(players_df):
     if (input('Is there rake or money for coins to be paid? (y/n)')[0] == 'n' ): return players_df
     names = players_df.index.tolist()
-    rake_s = pd.Series(data =  [int(input('Enter money for coins/rake to be paid to '+ name + ': '))*100 for name in names], index = names)
-    if rake_s.sum() == 0 : return players_df
-    players_df['net_result'] -= players_df['hands']/players_df['hands'].sum()*rake_s.sum()
-    players_df['net_result'] += rake_s
-    players_df['net_result'] = players_df['net_result'].round(0).astype(int)
+    rake_s = pd.Series(dict(zip(names, [0]*len(names))))
+    are_rake, done_rake = 'y', False
+    while (not done_rake):
+        if (are_rake == 'y'):
+            getting_rake = input('Who is going to get rake? \n')
+            rake_amt = int(input('How much is rake to ' +getting_rake +'? Use integer values only please \n'))*100
+            if (getting_rake.lower() in [x.lower() for x in rake_s.index.tolist()]):
+                rake_s[getting_rake] = rake_amt
+                are_rake = input('Is there any more coins to be paid/rake? (y/n)')
+            else:
+                print('Name not on ledger. The names present on ledger are the following: \n')
+                print(','.join(rake_s.index.tolist()))
+        elif (are_rake == 'n'):
+            done_rake = True
+            if rake_s.sum() == 0 : return players_df
+            players_df['net_result'] -= players_df['hands']/players_df['hands'].sum()*rake_s.sum()
+            players_df['net_result'] += rake_s
+            players_df['net_result'] = players_df['net_result'].round(0).astype(int)
+        else:
+            print('invalid input...plese answer(y/n)')
     return players_df
 
 def main():
