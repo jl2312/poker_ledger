@@ -4,24 +4,51 @@ from decimal import *
 
 def get_dataframe():
     csv_file_path = input(
-        "csv file path pls, otherwise hit enter to manually input: ")
-    if (csv_file_path == ""):
+        "Type man to manually input, press enter for automatic grab, enter file path for prepared csv ")
+    if (csv_file_path == "man"):
         players_dict = {}
 
         players_dict = get_players_from_input(players_dict)
 
         players_df = pd.DataFrame.from_dict(players_dict, orient = 'index', columns=[
-                                  "name", "net_result", 'hands'])
+                                  "name", "net_result"])
 
         players_df.loc[:, "net_result"] *= 100
         players_df["net_result"] = players_df["net_result"].astype(int)
 
         print(players_df)
         return players_df
+    elif (csv_file_path == ""):
+        start_date = input('What is the start date of the pay period? format "yyyy-mm-dd" ex: 2019-06-25')
+        end_date = input('What is the end date of the pay period? format "yyyy-mm-dd" ex: 2019-06-30')
+
+        players_df = get_period_data(start_date, end_date)
+        return players_df
     else:
         players_df = get_players_from_csv(csv_file_path)
         return players_df
 
+def get_players_from_raw_csv(file_path, start_date, end_date):
+    read_csv = pd.read_csv(file_path, ';')
+    if read_csv.DateStarted[0][:10] < start_date or read_csv.DateStarted[0][:10] > end_date: return None
+    name_dict = {'#NXAZ3': 'John Lord', '#8CVQF': 'Ben Bae', '#SXRVS': 'Brandon Zheng', '#27W7H': 'Owen Xu',
+                 '#KAVY7': 'Mike Vermeer', '#8NNB0': 'Taiyo Hamanaka', '#M28TN': 'Jack Turchetta',
+                 '#1S8W8': 'Christopher Shen', '#JU9BW': 'Lenardo Gavaudan',
+                 '#RE1D5': 'George Triandafyllides', '#7PMKY': 'Jake Poliner', '#7U4CB': 'Kevin Lu',
+                 '#75LHN': 'Justin Bean', '#WPEHN': 'Minjae Kwon', '#0A3X7': 'Issac Aleman',
+                 '#EGY05': 'Richard J Li', '#QJ7TP': 'Sam Blumenfeld', '#ESL0T': 'William Wang', '#CJ8XJ': 'Vignesh Valliyur', 
+                 '#GWC5V':'Zachary Chivers', '#FV0CJ': 'Richard Zhang', '#N24XP': 'Jaewan Bahk', '#VSVHC': 'Nikolai Mamut',
+                 '#9RDUK': 'Patrick Chi', '#AU0T6': 'Raymond Xu'}
+    read_csv['name'] = read_csv.ID.map(name_dict)
+    read_csv.rename({'Profit': 'net_result', 'Hands': 'hands' }, axis = 'columns', inplace = True)
+    cleaned_df = read_csv[["name", "net_result", "hands"]]
+    cleaned_df.loc[:, "net_result"] *= 100
+    cleaned_df["net_result"] = cleaned_df["net_result"].astype(int)
+    cleaned_df["hands"] = cleaned_df["hands"].astype(int)
+    cleaned_df = cleaned_df[cleaned_df.net_result != 0]
+    cleaned_df = cleaned_df.reset_index()
+    cleaned_df = cleaned_df.drop(["index"], axis=1)
+    return cleaned_df
 
 def get_players_from_csv(file_path):
     read_csv = pd.read_csv(file_path)
@@ -33,7 +60,69 @@ def get_players_from_csv(file_path):
     cleaned_df = cleaned_df.drop(["index"], axis=1)
     return cleaned_df
 
+def convert_date(date):
+    months = {'01':'Jan', '02':'Feb', '03':'Mar', '04':'Apr', 
+     '05':'May', '06':'Jun', '07':'Jul', '08':'Aug',
+     '09':'Sep', '10':'Oct', '11':'Nov', '12':'Dec'}
+    return date[8:]+'-'+months[date[5:7]]+'-'+date[:4]
 
+def get_raw_csvs(start_date):
+    dirName = 'raw_csvs'
+    start_date = convert_date(start_date)
+    files = []
+    try:
+        # Create target Directory
+        os.mkdir(dirName)
+        print("Directory " , dirName ,  " Created ") 
+    except FileExistsError:
+        print("Directory " , dirName ,  " already exists")
+    email_user = 'degen.c3ntral@gmail.com'
+    email_pass = 'D3g3n-c3ntral'
+    mail = imaplib.IMAP4_SSL('imap.gmail.com')
+    mail.login(email_user, email_pass)
+    mail.select('Inbox')
+    type, data = mail.search(None, '(SINCE "'+start_date+'")')
+    for num in data[0].split():
+        typ, data = mail.fetch(num, '(RFC822)' )
+        raw_email = data[0][1]
+    # converts byte literal to string removing b''
+        raw_email_string = raw_email.decode('utf-8')
+        email_message = email.message_from_string(raw_email_string)
+    # downloading attachments
+        for part in email_message.walk():
+            # this part comes from the snipped I don't understand yet... 
+            if part.get_content_maintype() == 'multipart':
+                continue
+            if part.get('Content-Disposition') is None:
+                continue
+            fileName = part.get_filename()
+            if bool(fileName):
+                filePath = dirName+'/'+fileName
+                if not os.path.isfile(filePath) :
+                    fp = open(filePath, 'wb+')
+                    fp.write(part.get_payload(decode=True))
+                    fp.close()
+                files.append(filePath)
+                subject = str(email_message).split("Subject: ", 1)[1].split("\nTo:", 1)[0]
+                print('Downloaded "{file}".'.format(file=fileName))
+    return files
+    
+def get_period_data(start_date, end_date):
+    files = get_raw_csvs(start_date)
+    data = pd.concat([get_players_from_raw_csv(file, start_date, end_date) for file in files])
+    data = data.groupby('name').sum()
+    return data
+
+def get_players_from_csv(file_path):
+    read_csv = pd.read_csv(file_path)
+    cleaned_df = read_csv[["name", "net_result"]].dropna(0)
+    cleaned_df.loc[:, "net_result"] *= 100
+    cleaned_df["net_result"] = cleaned_df["net_result"].astype(int)
+    cleaned_df = cleaned_df[cleaned_df.net_result != 0]
+    cleaned_df = cleaned_df.reset_index()
+    cleaned_df = cleaned_df.drop(["index"], axis=1)
+    return cleaned_df    
+    
 def get_players_from_input(players_dict):
 
     name = input("Name please: ")
@@ -44,7 +133,7 @@ def get_players_from_input(players_dict):
     net_result = Decimal(input(name + "'s net_result: "))
 
     players_dict[name] = [net_result]
-    players_dict[name].append(int(input(name + "'s number of hands played: ")))
+    players_dict[name].append(int(input(name + "'s net_result: ")))
 
 
     return get_players_from_input(players_dict)
@@ -167,9 +256,8 @@ def handle_proxies(players_df):
 def min_cash_flow(players_df):
     max_credit_idx = players_df["net_result"].idxmax()
     max_debit_idx = players_df["net_result"].idxmin()
-
-    max_credit = players_df.iat[max_credit_idx, 1]
-    max_debit = players_df.iat[max_debit_idx, 1]
+    max_credit = players_df.loc[max_credit_idx, 'net_result']
+    max_debit = players_df.loc[max_debit_idx, 'net_result']
 
     if (max_credit == 0 and max_debit == 0):
         return
@@ -177,19 +265,21 @@ def min_cash_flow(players_df):
     settle_value = min([-max_debit, max_credit])
 
     # net_value always stored in index 1 of a row
-    players_df.iat[max_credit_idx, 1] -= settle_value
-    players_df.iat[max_debit_idx, 1] += settle_value
+    players_df.loc[max_credit_idx, 'net_result'] -= settle_value
+    players_df.loc[max_debit_idx, 'net_result'] += settle_value
 
-    print(players_df.iat[max_debit_idx, 0] + " pays " +
-          str(settle_value / 100) + " to " + players_df.iat[max_credit_idx, 0])
+    print(max_debit_idx + " pays " +
+          str(settle_value / 100) + " to " + max_credit_idx)
 
     return min_cash_flow(players_df)
 
 def do_rake(players_df):
-    names = players_df['name'].tolist()
-    rake_df = pd.Series(data =  [int(input('Enter rake to be paid to '+ name + ': '))*100 for name in names], index = names)
-    players_df['Profit'] -= players_df['hands']/players_df['hands'].sum()*rake_df.sum()
-    players_df['Profit'] += rake_df
+    if (input('Is there rake or money for coins to be paid? (y/n)')[0] == 'n' ): return players_df
+    names = players_df.index.tolist()
+    rake_s = pd.Series(data =  [int(input('Enter money for coins/rake to be paid to '+ name + ': '))*100 for name in names], index = names)
+    if rake_s.sum() == 0 : return players_df
+    players_df['net_result'] -= players_df['hands']/players_df['hands'].sum()*rake_s.sum()
+    players_df['net_result'] += rake_s
     return players_df
 
 def main():
@@ -198,7 +288,7 @@ def main():
     check_ledger_is_valid(players_df)
 
     handle_proxies_output = handle_proxies(players_df)
-
+    print(players_df)
     min_cash_flow(players_df)
     print(*handle_proxies_output, sep="\n")
 
