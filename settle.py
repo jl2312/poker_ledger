@@ -41,7 +41,8 @@ def get_players_from_raw_csv(file_path, start_date, end_date):
                  '#CJ8XJ': 'Vignesh Valliyur', 
                  '#GWC5V':'Zachary Chivers', '#FV0CJ': 'Richard Zhang',
                  '#N24XP': 'Jaewan Bahk', '#VSVHC': 'Nikolai Mamut',
-                 '#9RDUK': 'Patrick Chi', '#AU0T6': 'Raymond Xu'}
+                 '#9RDUK': 'Patrick Chi', '#AU0T6': 'Raymond Xu', '#6ACX7': 'Danny Yo',
+                 '#DV419': 'Jonathan Gill', '#8P3Ra': 'Shiv', '#PGRK1': 'Shiv'}
     read_csv['name'] = read_csv.ID.map(name_dict)
     read_csv.rename({'Profit': 'net_result', 'Hands': 'hands' }, axis = 'columns', inplace = True)
     cleaned_df = read_csv[["name", "net_result", "hands"]]
