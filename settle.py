@@ -30,6 +30,7 @@ def get_dataframe():
         return players_df
 
 def get_players_from_raw_csv(file_path, start_date, end_date):
+    print ('Trying '+file_path)
     read_csv = pd.read_csv(file_path, ';')
     if read_csv.DateStarted[0][:10] < start_date or read_csv.DateStarted[0][:10] > end_date: return None
     name_dict = {'#NXAZ3': 'John Lord', '#8CVQF': 'Ben Bae', '#SXRVS': 'Brandon Zheng', '#27W7H': 'Owen Xu',
@@ -297,7 +298,82 @@ def do_rake(players_df):
             players_df['net_result'] = players_df['net_result'].round(0).astype(int)
         else:
             print('invalid input...plese answer(y/n)')
+    if (len(rake_s[rake_s != 0]) != 0):
+        print ('The rake to be paid is as follows:')
+        print (rake_s[rake_s != 0])
     return players_df
+
+def get_def_idx(players_df):
+    get_def = input("Who is a possible defaulter? ")
+    names_lowered =  [x.lower() for x in players_df.index.tolist()]
+    if (get_def.lower() in names_lowered):
+        get_def = players_df.index.tolist()[names_lowered.index(get_def.lower())]
+
+    else:
+        print(get_def +
+              " isn't a valid player... Here are the valid players:")
+        print(', '.join(players_df.index.tolist()))
+        return get_def_idx(players_df)
+    return get_def
+
+
+def get_spreadee_idx(players_df, def_idx):
+    spreadee = input(
+        "Who are we spreading " + def_idx + "'s loss to? ")
+
+    names_lowered =  [x.lower() for x in players_df.index.tolist()]
+    if (spreadee.lower() in names_lowered):
+        spreadee = players_df.index.tolist()[names_lowered.index(spreadee.lower())]
+    else:
+        print(spreadee +
+              " isn't a valid player... Here are the valid players:")
+        print(', '.join(players_df.index.tolist()))
+        return(get_spreadee_idx(players_df, def_idx))
+    return spreadee
+
+
+def settle_spreading(players_df, def_idx, spreadee_idx, spread_def_risk_output):
+    print (def_idx +' owes '+ str(players_df.loc[def_idx, 'net_result']/100.0) + ' and ' + spreadee_idx + ' is owed '+ str(players_df.loc[spreadee_idx, 'net_result']/100.0))
+    spread_amt = int(input('How much should be spread?'))*100
+    players_df.loc[def_idx, 'net_result'] += spread_amt
+    players_df.loc[spreadee_idx, 'net_result'] -= spread_amt
+
+    if (spread_amt > 0):
+        spread_def_risk_output.append(def_idx + " pays " +
+                                     str(spread_amt / 100) + " to " + spreadee_idx)
+    else:
+        spread_def_risk_output.append(def_idx + " pays " +
+                                     str(spread_amt / 100) + " to " + spreadee_idx)
+
+    return spread_def_risk_output
+def spread_def_risk(players_df):
+    
+    done = False
+    spread_def_risk_output = []
+
+    while (not done):
+        are_spread = input("Are there possible defaulters or more possible defaulters? (y/n) ")
+        if (are_spread == "y"):
+            def_idx = get_def_idx(players_df)
+            spreadee_idx = get_spreadee_idx(players_df, def_idx)
+            settle_spreading(players_df, def_idx,
+                           spreadee_idx, spread_def_risk_output)
+            done_spreading = False
+            while (not done_spreading):
+                are_spreadees = input('Are there more people to spread to? (y/n)')
+                if (are_spreadees == 'y'):
+                    spreadee_idx = get_spreadee_idx(players_df, def_idx)
+                    settle_spreading(players_df, def_idx,
+                           spreadee_idx, spread_def_risk_output)
+                else:
+                    done_spreading = True
+            
+        elif (are_spread == "n"):
+            done = True
+        else:
+            print("invalid input... please answer (y/n) ")
+    return spread_def_risk_output
+
 
 def main():
     players_df = get_dataframe()
@@ -305,11 +381,12 @@ def main():
     check_ledger_is_valid(players_df)
 
     handle_proxies_output = handle_proxies(players_df)
+    spread_output = spread_def_risk(players_df)
     print(players_df)
     min_cash_flow(players_df)
     print(*handle_proxies_output, sep="\n")
-
-    print("fin")
+    print (*spread_output, sep='\n')
+    print("\nfin")
 
 
 main()
